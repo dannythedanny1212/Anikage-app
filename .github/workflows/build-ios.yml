@@ -1,0 +1,70 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Expo CLI
+        run: npm install -g expo-cli @expo/cli
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods
+
+      - name: Prebuild Expo (generate iOS folder)
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Install iOS dependencies
+        run: |
+          cd ios
+          pod install
+
+      - name: Build IPA (unsigned)
+        run: |
+          cd ios
+          xcodebuild \
+            -workspace AniKage.xcworkspace \
+            -scheme AniKage \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath $RUNNER_TEMP/AniKage.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Export IPA
+        run: |
+          mkdir -p $RUNNER_TEMP/ipa
+          cp -r $RUNNER_TEMP/AniKage.xcarchive/Products/Applications/AniKage.app $RUNNER_TEMP/ipa/
+          cd $RUNNER_TEMP/ipa
+          mkdir Payload
+          cp -r AniKage.app Payload/
+          zip -r AniKage.ipa Payload/
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AniKage-IPA
+          path: ${{ runner.temp }}/ipa/AniKage.ipa
+          retention-days: 30
