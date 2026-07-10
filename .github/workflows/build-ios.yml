@@ -32,17 +32,56 @@ jobs:
       - name: Install CocoaPods
         run: sudo gem install cocoapods -v 1.15.2
 
-      - name: Prebuild Expo (generate iOS folder)
+      - name: Prebuild Expo
         run: npx expo prebuild --platform ios --no-install
 
       - name: Patch Podfile
         run: |
-          sed -i '' '/:privacy_file_aggregation_enabled/d' ios/Podfile || true
+          cd ios
+
+          # 1. Remove privacy keyword that old CocoaPods chokes on
+          sed -i '' '/:privacy_file_aggregation_enabled/d' Podfile || true
+
+          # 2. Remove any conflicting modular header directives
+          sed -i '' '/use_modular_headers!/d' Podfile || true
+
+          # 3. Inject targeted fix for the ExpoModulesCore/React-jsinspector
+          #    Swift static library conflict — only enables modular headers
+          #    for the specific pods that need it, not globally
+          python3 - <<'PYTHON'
+          import re
+
+          with open('Podfile', 'r') as f:
+              content = f.read()
+
+          # Find the main target block and inject modular headers for specific pods
+          injection = """
+            pod 'React-jsinspector', :modular_headers => true
+            pod 'React-Codegen', :modular_headers => true
+          """
+
+          # Insert before the last 'end' in the file
+          content = content.rstrip()
+          if "React-jsinspector" not in content:
+              last_end = content.rfind('\nend')
+              content = content[:last_end] + injection + content[last_end:]
+
+          with open('Podfile', 'w') as f:
+              f.write(content)
+
+          print("Podfile patched successfully")
+          PYTHON
+
+      - name: Clear caches
+        run: |
+          rm -rf ~/Library/Developer/Xcode/DerivedData/*
+          rm -rf ~/Library/Caches/CocoaPods
+          cd ios && rm -rf Pods Podfile.lock
 
       - name: Install iOS dependencies
         run: |
           cd ios
-          pod install
+          pod install --repo-update
 
       - name: Build IPA (unsigned)
         run: |
@@ -56,7 +95,13 @@ jobs:
             archive \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
+            CLANG_WARN_STRICT_PROTOTYPES=NO \
+            GCC_WARN_INHIBIT_ALL_WARNINGS=YES \
+            OTHER_SWIFT_FLAGS="-Xfrontend -disable-reflection-metadata" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            ONLY_ACTIVE_ARCH=NO
 
       - name: Export IPA
         run: |
