@@ -27,9 +27,10 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
+          bundler-cache: false
 
       - name: Install CocoaPods
-        run: sudo gem install cocoapods
+        run: sudo gem install cocoapods -v 1.15.2
 
       - name: Prebuild Expo (generate iOS folder)
         run: npx expo prebuild --platform ios --no-install
@@ -37,7 +38,7 @@ jobs:
       - name: Install iOS dependencies
         run: |
           cd ios
-          pod install
+          pod install --repo-update
 
       - name: Build IPA (unsigned)
         run: |
