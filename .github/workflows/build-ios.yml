@@ -44,8 +44,6 @@ jobs:
           ruby - <<'RUBY'
           podfile = File.read('Podfile')
 
-          # Add post_install hook that sets DEFINES_MODULE on jsinspector
-          # AND disables module debugging on conflicting pods
           post_install = <<~'HOOK'
 
           post_install do |installer|
@@ -53,16 +51,18 @@ jobs:
               target.build_configurations.each do |config|
                 config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
                 config.build_settings['CLANG_ENABLE_MODULE_DEBUGGING'] = 'NO'
+                config.build_settings['CLANG_MODULES_AUTOLINK'] = 'NO'
               end
               if target.name == 'React-jsinspector'
                 target.build_configurations.each do |config|
                   config.build_settings['DEFINES_MODULE'] = 'YES'
                 end
               end
-              if ['ReactCommon', 'React-RCTAppDelegate'].include?(target.name)
+              if ['ReactCommon', 'React-RCTAppDelegate', 'React-RuntimeApple'].include?(target.name)
                 target.build_configurations.each do |config|
                   config.build_settings['DEFINES_MODULE'] = 'NO'
                   config.build_settings['CLANG_ENABLE_MODULES'] = 'NO'
+                  config.build_settings['CLANG_ENABLE_MODULE_DEBUGGING'] = 'NO'
                 end
               end
             end
@@ -73,8 +73,6 @@ jobs:
             podfile += post_install
           end
 
-          # Add use_modular_headers! scoped only to jsinspector
-          # by overriding it in the abstract target
           unless podfile.include?("'React-jsinspector', :modular_headers => true")
             podfile = podfile.sub(
               /^(\s*use_react_native!\()/,
@@ -115,6 +113,7 @@ jobs:
             SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
             GCC_WARN_INHIBIT_ALL_WARNINGS=YES \
             CLANG_ENABLE_MODULE_DEBUGGING=NO \
+            CLANG_MODULES_AUTOLINK=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
             ONLY_ACTIVE_ARCH=NO
 
