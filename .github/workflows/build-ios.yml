@@ -1,4 +1,5 @@
 name: Build iOS IPA
+# v2 - post_install only, no pod injection
 
 on:
   push:
@@ -40,6 +41,7 @@ jobs:
           cd ios
           sed -i '' '/:privacy_file_aggregation_enabled/d' Podfile || true
           sed -i '' '/use_modular_headers!/d' Podfile || true
+          sed -i '' "/pod 'React-jsinspector'/d" Podfile || true
 
           ruby - <<'RUBY'
           podfile = File.read('Podfile')
@@ -56,6 +58,7 @@ jobs:
               if target.name == 'React-jsinspector'
                 target.build_configurations.each do |config|
                   config.build_settings['DEFINES_MODULE'] = 'YES'
+                  config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
                 end
               end
               if ['ReactCommon', 'React-RCTAppDelegate', 'React-RuntimeApple'].include?(target.name)
@@ -73,18 +76,9 @@ jobs:
             podfile += post_install
           end
 
-          unless podfile.include?("'React-jsinspector', :modular_headers => true")
-            podfile = podfile.sub(
-              /^(\s*use_react_native!\()/,
-              "  pod 'React-jsinspector', :modular_headers => true\n\\1"
-            )
-          end
-
           File.write('Podfile', podfile)
           puts "Patched"
           RUBY
-
-          tail -40 Podfile
 
       - name: Clear caches
         run: |
