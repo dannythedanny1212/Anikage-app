@@ -37,8 +37,15 @@ jobs:
 
       - name: Patch Podfile
         run: |
-          sed -i '' '/:privacy_file_aggregation_enabled/d' ios/Podfile || true
-          sed -i '' '/use_modular_headers!/d' ios/Podfile || true
+          cd ios
+          # Remove privacy aggregation keyword
+          sed -i '' '/:privacy_file_aggregation_enabled/d' Podfile || true
+          # Remove any existing use_modular_headers! to avoid duplicates
+          sed -i '' '/use_modular_headers!/d' Podfile || true
+          # Inject modular_headers only for React-jsinspector at the end of the file before the last 'end'
+          sed -i '' "/^end$/i\\
+          pod 'React-jsinspector', :modular_headers => true
+          " Podfile || true
 
       - name: Install iOS dependencies
         run: |
@@ -58,7 +65,6 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            SWIFT_COMPILATION_MODE=wholemodule \
             CLANG_ENABLE_MODULE_DEBUGGING=NO
 
       - name: Export IPA
