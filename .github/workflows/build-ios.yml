@@ -32,37 +32,17 @@ jobs:
       - name: Install CocoaPods
         run: sudo gem install cocoapods -v 1.15.2
 
-      - name: Prebuild Expo
+      - name: Prebuild Expo (generate iOS folder)
         run: npx expo prebuild --platform ios --no-install
 
-      - name: Patch Podfile and boost checksum
+      - name: Patch Podfile
         run: |
-          # Remove bad keyword
           sed -i '' '/:privacy_file_aggregation_enabled/d' ios/Podfile || true
-
-          # Find and patch boost podspec checksum
-          for PODSPEC in $(find /Users/runner/work -name "boost.podspec" 2>/dev/null); do
-            echo "Patching: $PODSPEC"
-            sed -i '' 's/d879f21a81d8ab3b24a28820a27a2ef937263ecc2d17d02f496a25ac174a165b/6478edfe2f3305127cffe8caf73ea0176c53769f4bf1585be237eb30798c3b8e/' "$PODSPEC" || true
-          done
-
-          # Also patch in node_modules directly
-          for PODSPEC in $(find /Users/runner/work -path "*/third-party-podspecs/boost.podspec" 2>/dev/null); do
-            echo "Patching node_modules boost: $PODSPEC"
-            sed -i '' 's/d879f21a81d8ab3b24a28820a27a2ef937263ecc2d17d02f496a25ac174a165b/6478edfe2f3305127cffe8caf73ea0176c53769f4bf1585be237eb30798c3b8e/' "$PODSPEC" || true
-          done
-
-      - name: Clear all caches
-        run: |
-          rm -rf ~/Library/Developer/Xcode/DerivedData/*
-          rm -rf ~/Library/Caches/CocoaPods
-          cd ios
-          rm -rf Pods Podfile.lock
 
       - name: Install iOS dependencies
         run: |
           cd ios
-          pod install --repo-update
+          pod install
 
       - name: Build IPA (unsigned)
         run: |
