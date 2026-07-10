@@ -1,5 +1,5 @@
 name: Build iOS IPA
-# v2 - post_install only, no pod injection
+# v3 - CocoaPods 1.16.1
 
 on:
   push:
@@ -31,7 +31,7 @@ jobs:
           bundler-cache: false
 
       - name: Install CocoaPods
-        run: sudo gem install cocoapods -v 1.15.2
+        run: sudo gem install cocoapods -v 1.16.1
 
       - name: Prebuild Expo
         run: npx expo prebuild --platform ios --no-install
