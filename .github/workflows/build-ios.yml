@@ -38,6 +38,10 @@ jobs:
       - name: Patch Podfile
         run: |
           sed -i '' '/:privacy_file_aggregation_enabled/d' ios/Podfile || true
+          # Pin boost to a version with correct checksum
+          echo "
+          pod 'boost', :podspec => 'https://raw.githubusercontent.com/react-native-community/react-native-boost-podspec/main/boost.podspec'
+          " >> ios/Podfile || true
 
       - name: Clear CocoaPods cache
         run: |
