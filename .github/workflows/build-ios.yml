@@ -39,10 +39,17 @@ jobs:
         run: |
           sed -i '' '/:privacy_file_aggregation_enabled/d' ios/Podfile || true
 
+      - name: Clear CocoaPods cache
+        run: |
+          rm -rf ~/Library/Developer/Xcode/DerivedData/*
+          rm -rf ~/Library/Caches/CocoaPods
+          cd ios
+          rm -rf Pods Podfile.lock
+
       - name: Install iOS dependencies
         run: |
           cd ios
-          pod install
+          pod install --repo-update
 
       - name: Build IPA (unsigned)
         run: |
