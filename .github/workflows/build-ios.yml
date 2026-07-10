@@ -38,15 +38,12 @@ jobs:
       - name: Patch Podfile
         run: |
           sed -i '' '/:privacy_file_aggregation_enabled/d' ios/Podfile || true
-          # Add use_modular_headers! after the first 'platform :ios' line
-          sed -i '' '/^platform :ios/a\
-          use_modular_headers!
-          ' ios/Podfile || true
+          sed -i '' '/use_modular_headers!/d' ios/Podfile || true
 
       - name: Install iOS dependencies
         run: |
           cd ios
-          pod install --repo-update
+          pod install
 
       - name: Build IPA (unsigned)
         run: |
@@ -60,7 +57,9 @@ jobs:
             archive \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_COMPILATION_MODE=wholemodule \
+            CLANG_ENABLE_MODULE_DEBUGGING=NO
 
       - name: Export IPA
         run: |
