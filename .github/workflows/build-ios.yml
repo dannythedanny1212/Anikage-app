@@ -39,38 +39,47 @@ jobs:
         run: |
           cd ios
 
-          # 1. Remove privacy keyword that old CocoaPods chokes on
+          # Remove bad keyword
           sed -i '' '/:privacy_file_aggregation_enabled/d' Podfile || true
-
-          # 2. Remove any conflicting modular header directives
           sed -i '' '/use_modular_headers!/d' Podfile || true
 
-          # 3. Inject targeted fix for the ExpoModulesCore/React-jsinspector
-          #    Swift static library conflict — only enables modular headers
-          #    for the specific pods that need it, not globally
-          python3 - <<'PYTHON'
-          import re
+          # Use Ruby to patch existing React-jsinspector line to add modular_headers
+          ruby - <<'RUBY'
+          podfile = File.read('Podfile')
 
-          with open('Podfile', 'r') as f:
-              content = f.read()
+          # Instead of adding a new pod declaration, patch the existing
+          # React-jsinspector reference inside use_react_native! to use modular headers
+          # The real fix is to add a post_install hook that enables modular headers
+          unless podfile.include?('React-jsinspector.*modular_headers')
+            post_install_hook = <<~HOOK
 
-          # Find the main target block and inject modular headers for specific pods
-          injection = """
-            pod 'React-jsinspector', :modular_headers => true
-            pod 'React-Codegen', :modular_headers => true
-          """
+            post_install do |installer|
+              installer.pods_project.targets.each do |target|
+                if target.name == 'React-jsinspector'
+                  target.build_configurations.each do |config|
+                    config.build_settings['DEFINES_MODULE'] = 'YES'
+                    config.build_settings['SWIFT_INCLUDE_PATHS'] = '$(PODS_ROOT)/Headers/Public/React-jsinspector'
+                  end
+                end
+                target.build_configurations.each do |config|
+                  config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+                end
+              end
+            end
+            HOOK
 
-          # Insert before the last 'end' in the file
-          content = content.rstrip()
-          if "React-jsinspector" not in content:
-              last_end = content.rfind('\nend')
-              content = content[:last_end] + injection + content[last_end:]
+            unless podfile.include?('post_install do |installer|')
+              podfile += post_install_hook
+            end
+          end
 
-          with open('Podfile', 'w') as f:
-              f.write(content)
+          File.write('Podfile', podfile)
+          puts "Podfile patched with post_install hook"
+          RUBY
 
-          print("Podfile patched successfully")
-          PYTHON
+          echo "=== PATCHED PODFILE TAIL ==="
+          tail -30 Podfile
+          echo "==="
 
       - name: Clear caches
         run: |
@@ -99,7 +108,6 @@ jobs:
             SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
             CLANG_WARN_STRICT_PROTOTYPES=NO \
             GCC_WARN_INHIBIT_ALL_WARNINGS=YES \
-            OTHER_SWIFT_FLAGS="-Xfrontend -disable-reflection-metadata" \
             COMPILER_INDEX_STORE_ENABLE=NO \
             ONLY_ACTIVE_ARCH=NO
 
