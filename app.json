@@ -27,16 +27,6 @@
       },
       "package": "com.yourname.anikageapp"
     },
-    "plugins": [
-      [
-        "react-native-webview",
-        {
-          "android": {
-            "mixedContentMode": "always"
-          }
-        }
-      ]
-    ],
     "extra": {
       "eas": {
         "projectId": "YOUR_EAS_PROJECT_ID"
