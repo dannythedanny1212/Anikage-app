@@ -35,10 +35,16 @@ jobs:
       - name: Prebuild Expo (generate iOS folder)
         run: npx expo prebuild --platform ios --no-install
 
+      - name: Patch Podfile
+        run: |
+          sed -i '' 's/:privacy_file_aggregation_enabled => true//' ios/Podfile || true
+          sed -i '' 's/:privacy_file_aggregation_enabled => false//' ios/Podfile || true
+          sed -i '' '/:privacy_file_aggregation_enabled/d' ios/Podfile || true
+
       - name: Install iOS dependencies
         run: |
           cd ios
-          pod install --repo-update
+          pod install
 
       - name: Build IPA (unsigned)
         run: |
