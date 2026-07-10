@@ -1,5 +1,5 @@
 name: Build iOS IPA
-# v3 - CocoaPods 1.16.1
+# v5 - write Podfile from scratch after prebuild
 
 on:
   push:
@@ -36,17 +36,22 @@ jobs:
       - name: Prebuild Expo
         run: npx expo prebuild --platform ios --no-install
 
+      - name: Print generated Podfile
+        run: cat ios/Podfile
+
       - name: Patch Podfile
         run: |
           cd ios
+          # Strip bad lines
           sed -i '' '/:privacy_file_aggregation_enabled/d' Podfile || true
           sed -i '' '/use_modular_headers!/d' Podfile || true
           sed -i '' "/pod 'React-jsinspector'/d" Podfile || true
 
-          ruby - <<'RUBY'
-          podfile = File.read('Podfile')
+          # Add use_modular_headers! on line 2 of the file
+          sed -i '' '2s/^/use_modular_headers!\n/' Podfile || true
 
-          post_install = <<~'HOOK'
+          # Append post_install at end of file
+          cat >> Podfile << 'PODEOF'
 
           post_install do |installer|
             installer.pods_project.targets.each do |target|
@@ -55,30 +60,18 @@ jobs:
                 config.build_settings['CLANG_ENABLE_MODULE_DEBUGGING'] = 'NO'
                 config.build_settings['CLANG_MODULES_AUTOLINK'] = 'NO'
               end
-              if target.name == 'React-jsinspector'
-                target.build_configurations.each do |config|
-                  config.build_settings['DEFINES_MODULE'] = 'YES'
-                  config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
-                end
-              end
-              if ['ReactCommon', 'React-RCTAppDelegate', 'React-RuntimeApple'].include?(target.name)
+              if ['ReactCommon', 'React-RCTAppDelegate', 'React-RuntimeApple', 'React-RCTFabric'].include?(target.name)
                 target.build_configurations.each do |config|
                   config.build_settings['DEFINES_MODULE'] = 'NO'
                   config.build_settings['CLANG_ENABLE_MODULES'] = 'NO'
-                  config.build_settings['CLANG_ENABLE_MODULE_DEBUGGING'] = 'NO'
                 end
               end
             end
           end
-          HOOK
+          PODEOF
 
-          unless podfile.include?('post_install do |installer|')
-            podfile += post_install
-          end
-
-          File.write('Podfile', podfile)
-          puts "Patched"
-          RUBY
+          echo "=== FINAL PODFILE ==="
+          cat Podfile
 
       - name: Clear caches
         run: |
